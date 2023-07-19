@@ -1,4 +1,4 @@
-use chrono::{DateTime, Datelike, NaiveDateTime, Utc, Weekday, NaiveTime};
+use chrono::{DateTime, Datelike, NaiveDateTime, Utc, Weekday};
 use chrono::Timelike;
 use serde::{Deserialize, Serialize};
 use worker::*;
@@ -9,15 +9,23 @@ pub struct UnixTimePayload {
 }
 
 #[event(fetch)]
-async fn main(req: Request, env: Env, ctx: Context) -> Result<Response> {
+async fn main(req: Request, _env: Env, _ctx: Context) -> Result<Response> {
     if req.method() != Method::Get {
         return Response::ok("{\"error\": \"Method Not Allowed\"}".to_string());
     }
     let full_path = req.path();
     let unixtime_str = full_path.trim_start_matches('/');
-    let unixtime: i64 = unixtime_str.parse().unwrap();
+    let unixtime = if let Ok(value) = unixtime_str.parse::<i64>() {
+        value
+    } else {
+        return Response::ok("{\"error\": \"Invalid unixtime\"}".to_string());
+    };
 
-    let naive = NaiveDateTime::from_timestamp_opt(unixtime, 0).unwrap();
+    let naive = if let Some(value) = NaiveDateTime::from_timestamp_opt(unixtime, 0) {
+        value
+    } else {
+        return Response::ok("{\"error\": \"Invalid timestamp\"}".to_string());
+    };
     let datetime = DateTime::<Utc>::from_utc(naive, Utc);
     let naive_time = datetime.time();
 
